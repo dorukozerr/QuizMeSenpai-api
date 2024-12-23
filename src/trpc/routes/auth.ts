@@ -13,7 +13,12 @@ if (!jwtSecret) {
 
 export const authRouter = router({
   register: publicProcedure
-    .input(z.object({ username: z.string(), password: z.string() }))
+    .input(
+      z.object({
+        username: z.string().min(3).max(30),
+        password: z.string().min(4).max(30)
+      })
+    )
     .mutation(async ({ ctx: { res }, input: { username, password } }) => {
       const doesUsernameExists = await collections.users.findOne({ username });
 
@@ -46,7 +51,12 @@ export const authRouter = router({
       return { _id: result.insertedId.toString(), username };
     }),
   login: publicProcedure
-    .input(z.object({ username: z.string(), password: z.string() }))
+    .input(
+      z.object({
+        username: z.string().min(3).max(30),
+        password: z.string().min(4).max(30)
+      })
+    )
     .mutation(async ({ ctx: { res }, input: { username, password } }) => {
       const user = await collections.users.findOne({ username });
 

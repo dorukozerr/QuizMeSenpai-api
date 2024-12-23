@@ -1,1 +1,5 @@
-{}
+{
+  "singleQuote": true,
+  "bracketSpacing": true,
+  "trailingComma": "none"
+}

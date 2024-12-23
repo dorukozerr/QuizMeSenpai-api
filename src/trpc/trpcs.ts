@@ -1,5 +1,5 @@
-import { initTRPC, TRPCError } from "@trpc/server";
-import { Context } from "./context";
+import { initTRPC, TRPCError } from '@trpc/server';
+import { Context } from './context';
 
 const t = initTRPC.context<Context>().create();
 
@@ -8,8 +8,8 @@ const middleware = t.middleware;
 const isAuthenticated = middleware(async ({ ctx: { user }, next }) => {
   if (!user) {
     throw new TRPCError({
-      code: "UNAUTHORIZED",
-      message: "You are not authorized for this request.",
+      code: 'UNAUTHORIZED',
+      message: 'You are not authorized for this request.'
     });
   }
 

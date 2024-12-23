@@ -6,7 +6,8 @@ import express from "express";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import cookieParser from "cookie-parser";
 import { mongoClient } from "./lib/db";
-import { appRouter, createContext } from "./trpc";
+import { appRouter } from "./trpc";
+import { createContext } from "./trpc/context";
 
 const app = express();
 const serverPort = process.env.SERVER_PORT;

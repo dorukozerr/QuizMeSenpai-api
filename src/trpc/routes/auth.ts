@@ -79,9 +79,7 @@ export const authRouter = router({
 
       return { _id: user._id.toString(), username: user.username };
     }),
-  logout: protectedProcedure.mutation(({ ctx: { res, user } }) => {
-    console.log("logout =>", user);
-
+  logout: protectedProcedure.mutation(({ ctx: { res } }) => {
     res.clearCookie("token");
 
     return { success: true };

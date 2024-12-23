@@ -15,29 +15,28 @@ export const createContext = async ({
   req,
   res,
 }: CreateExpressContextOptions) => {
-  console.log("createContext called"); // Verify the function is running
-
   const getUserFromCookie = async () => {
     try {
       const { token } = req.cookies;
 
       if (!token) {
-        console.log("No token cookie found");
         return null;
       }
 
-      const decoded = verify(token, jwtSecret); // Remove .value
+      const decoded = verify(token, jwtSecret) as {
+        userId: string;
+        username: string;
+      };
 
-      console.log("Decoded token:", decoded);
-      return { decoded };
+      return { userId: decoded.userId, username: decoded.username };
     } catch (error) {
       console.error("Auth error:", error);
+
       return null;
     }
   };
 
   const user = await getUserFromCookie();
-  console.log("Final user context:", user);
 
   return { req, res, user };
 };
@@ -49,7 +48,6 @@ const t = initTRPC.context<Context>().create();
 const middleware = t.middleware;
 
 const isAuthenticated = middleware(async ({ ctx, next }) => {
-  console.log("isAuthenticated =>", ctx.user);
   if (!ctx.user) {
     throw new TRPCError({
       code: "UNAUTHORIZED",
@@ -73,12 +71,87 @@ export const appRouter = t.router({
   }),
   register: publicProcedure
     .input(z.object({ username: z.string(), password: z.string() }))
-    .mutation(async ({ input: { username, password } }) => {
-      console.log({ username, password });
+    .mutation(async ({ ctx, input: { username, password } }) => {
+      const doesUsernameExists = await collections.users.findOne({ username });
+
+      if (doesUsernameExists) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Username already exists",
+        });
+      }
+
+      const hashedPassword = await hash(password, 10);
+
+      const result = await collections.users.insertOne({
+        username,
+        password: hashedPassword,
+        createdAt: new Date(),
+      });
+
+      const token = sign(
+        { userId: result.insertedId.toString(), username },
+        jwtSecret,
+        { expiresIn: "7d" }
+      );
+
+      ctx.res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return {
+        user: {
+          id: result.insertedId.toString(),
+          username,
+        },
+      };
     }),
   login: publicProcedure
     .input(z.object({ username: z.string(), password: z.string() }))
-    .mutation(async ({ input: { username, password } }) => {
-      console.log({ username, password });
+    .mutation(async ({ ctx, input: { username, password } }) => {
+      const user = await collections.users.findOne({ username });
+
+      if (!user) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invalid username or password",
+        });
+      }
+
+      const isValidPassword = await compare(password, user.password);
+      if (!isValidPassword) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Invalid username or password",
+        });
+      }
+
+      const token = sign(
+        { userId: user._id.toString(), username: user.username },
+        jwtSecret,
+        { expiresIn: "7d" }
+      );
+
+      ctx.res.cookie("token", token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      });
+
+      return {
+        user: {
+          id: user._id.toString(),
+          username: user.username,
+        },
+      };
     }),
+  logout: protectedProcedure.mutation(async ({ ctx: { res } }) => {
+    res.clearCookie("token");
+
+    return { success: true };
+  }),
 });

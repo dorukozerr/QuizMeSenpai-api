@@ -10,9 +10,8 @@ import { appRouter, createContext } from "./trpc";
 
 const app = express();
 const serverPort = process.env.SERVER_PORT;
-const websocketPort = process.env.WS_PORT;
 
-if (!serverPort || !websocketPort) {
+if (!serverPort) {
   throw new Error("Ports are undefined.");
 }
 
@@ -23,12 +22,15 @@ app.use("/trpc", createExpressMiddleware({ createContext, router: appRouter }));
 const startServer = async () => {
   try {
     await mongoClient.connect();
+
     console.log("Connected to MongoDB");
+
     app.listen(serverPort, () => {
       console.log(`Server running on port ${serverPort}`);
     });
   } catch (error) {
     console.error("Failed to connect to MongoDB", error);
+
     process.exit(1);
   }
 };

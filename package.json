@@ -1,9 +1,9 @@
 {
-  "name": "quiz-me-senpai-server",
+  "name": "quiz-me-senpai-api",
   "version": "1.0.0",
   "description": "Server application for QuizMeSenpai",
   "main": "index.js",
-  "repository": "git@github.com:dorukozerr/QuizMeSenpai-server.git",
+  "repository": "git@github.com:dorukozerr/QuizMeSenpai-api.git",
   "author": "Doruk Özer <dorukozer@protonmail.com>",
   "license": "MIT",
   "scripts": {

@@ -1,9 +1,13 @@
-import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-import { hash, compare } from 'bcryptjs';
+import { ObjectId } from 'mongodb';
 import { sign } from 'jsonwebtoken';
+import { randomBytes } from 'crypto';
+import { TRPCError } from '@trpc/server';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+
 import { collections } from '../../lib/db';
 import { router, publicProcedure, protectedProcedure } from '../trpcs';
+import { Otp, User } from '../../types';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -12,87 +16,89 @@ if (!jwtSecret) {
 }
 
 export const authRouter = router({
-  register: publicProcedure
-    .input(
-      z.object({
-        username: z.string().min(3).max(30),
-        password: z.string().min(4).max(30)
-      })
-    )
-    .mutation(async ({ ctx: { res }, input: { username, password } }) => {
-      const doesUsernameExists = await collections.users.findOne({ username });
-
-      if (doesUsernameExists) {
-        throw new TRPCError({
-          code: 'CONFLICT',
-          message: 'Username already exists'
-        });
-      }
-
-      const hashedPassword = await hash(password, 10);
-
-      const result = await collections.users.insertOne({
-        username,
-        password: hashedPassword,
-        createdAt: new Date()
-      });
-
-      const token = sign({ _id: result.insertedId.toString() }, jwtSecret, {
-        expiresIn: '7d'
-      });
-
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000
-      });
-
-      return { _id: result.insertedId.toString(), username };
-    }),
   login: publicProcedure
     .input(
       z.object({
-        username: z.string().min(3).max(30),
-        password: z.string().min(4).max(30)
+        phoneNumber: z.string().refine((number) => isValidPhoneNumber(number), {
+          message: 'Invalid phone number'
+        })
       })
     )
-    .mutation(async ({ ctx: { res }, input: { username, password } }) => {
-      const user = await collections.users.findOne({ username });
+    .mutation(async ({ input: { phoneNumber } }) => {
+      const hash = randomBytes(16).toString('hex');
+      const otp = randomBytes(3).toString('hex');
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Invalid username or password'
-        });
-      }
+      await collections.otps.insertOne({ otp, hash, createdAt: new Date() });
 
-      const isValidPassword = await compare(password, user.password);
+      // TODO: Implement AWS SNS service here
 
-      if (!isValidPassword) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Invalid username or password'
-        });
-      }
-
-      const token = sign({ _id: user._id.toString() }, jwtSecret, {
-        expiresIn: '7d'
-      });
-
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
-
-      return { _id: user._id.toString(), username: user.username };
+      return { message: `Please enter the OTP sent to ${phoneNumber}`, hash };
     }),
-  logout: protectedProcedure.mutation(({ ctx: { res } }) => {
+  authenticate: publicProcedure
+    .input(
+      z.object({
+        phoneNumber: z.string().refine((number) => isValidPhoneNumber(number), {
+          message: 'Invalid phone number'
+        }),
+        otp: z.string().min(6).max(6),
+        hash: z.string().min(32).max(32)
+      })
+    )
+    .mutation(async ({ ctx: { res }, input: { phoneNumber, otp, hash } }) => {
+      const otpRecord = (await collections.otps.findOne({
+        otp,
+        hash
+      })) as Otp | null;
+
+      if (!otpRecord) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Otp incorrect.'
+        });
+      }
+
+      // checking that otp is generated in last 5 minutes
+      if (
+        new Date().getTime() - otpRecord.createdAt.getTime() <
+        5 * 60 * 1000
+      ) {
+        const user = (await collections.users.findOne({
+          phoneNumber
+        })) as User | null;
+
+        const userId = user
+          ? user._id
+          : (
+              await collections.users.insertOne({
+                phoneNumber,
+                username: '',
+                createdAt: new Date()
+              })
+            ).insertedId;
+
+        const token = sign({ _id: userId.toString() }, jwtSecret, {
+          expiresIn: '30d'
+        });
+
+        res.cookie('token', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 30 * 24 * 60 * 60 * 1000
+        });
+
+        return { success: true };
+      } else {
+        throw new TRPCError({
+          code: 'TIMEOUT',
+          message: 'OTP timed out.'
+        });
+      }
+    }),
+  logout: protectedProcedure.mutation(async ({ ctx: { res } }) => {
     res.clearCookie('token');
 
     return { success: true };
   }),
-  checkAuth: protectedProcedure.query(async ({ ctx: { user } }) => user)
+  checkAuth: protectedProcedure.query(({ ctx: { user } }) => user)
 });

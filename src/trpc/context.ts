@@ -22,19 +22,15 @@ export const createContext = async ({
         return null;
       }
 
-      const { _id } = verify(token, jwtSecret) as {
-        _id: string;
-      };
+      //      const { _id } = verify(token, jwtSecret) as { _id: string };
+      //
+      //      const user = await collections.users.findOne({ _id: new ObjectId(_id) });
+      //
+      //      if (!user) {
+      //        return null;
+      //      }
 
-      const user = await collections.users.findOne({
-        _id: new ObjectId(_id)
-      });
-
-      if (!user) {
-        return null;
-      }
-
-      return { _id: user._id, username: user.username };
+      return { _id: '123123' };
     } catch (error) {
       console.error('Auth error:', error);
 

@@ -2,7 +2,9 @@ import { ObjectId } from 'mongodb';
 import { inferAsyncReturnType } from '@trpc/server';
 import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
 import { verify } from 'jsonwebtoken';
+
 import { collections } from '../lib/db';
+import { User } from '../types';
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -22,15 +24,17 @@ export const createContext = async ({
         return null;
       }
 
-      //      const { _id } = verify(token, jwtSecret) as { _id: string };
-      //
-      //      const user = await collections.users.findOne({ _id: new ObjectId(_id) });
-      //
-      //      if (!user) {
-      //        return null;
-      //      }
+      const { _id } = verify(token, jwtSecret) as { _id: string };
 
-      return { _id: '123123' };
+      const user = (await collections.users.findOne({
+        _id: new ObjectId(_id)
+      })) as User | null;
+
+      if (!user) {
+        return null;
+      }
+
+      return { _id: user._id, username: user.username };
     } catch (error) {
       console.error('Auth error:', error);
 

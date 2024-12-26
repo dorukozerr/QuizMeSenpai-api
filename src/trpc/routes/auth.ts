@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { ObjectId } from 'mongodb';
 import { sign } from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { TRPCError } from '@trpc/server';
@@ -28,11 +27,16 @@ export const authRouter = router({
       const hash = randomBytes(16).toString('hex');
       const otp = randomBytes(3).toString('hex');
 
-      await collections.otps.insertOne({ otp, hash, createdAt: new Date() });
+      await collections.otps.insertOne({
+        phoneNumber,
+        otp,
+        hash,
+        createdAt: new Date()
+      });
 
       // TODO: Implement AWS SNS service here
 
-      return { message: `Please enter the OTP sent to ${phoneNumber}`, hash };
+      return { success: true, hash };
     }),
   authenticate: publicProcedure
     .input(
@@ -46,6 +50,7 @@ export const authRouter = router({
     )
     .mutation(async ({ ctx: { res }, input: { phoneNumber, otp, hash } }) => {
       const otpRecord = (await collections.otps.findOne({
+        phoneNumber,
         otp,
         hash
       })) as Otp | null;
@@ -53,7 +58,7 @@ export const authRouter = router({
       if (!otpRecord) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Otp incorrect.'
+          message: 'Incorrect payload.'
         });
       }
 
@@ -71,7 +76,7 @@ export const authRouter = router({
           : (
               await collections.users.insertOne({
                 phoneNumber,
-                username: '',
+                username: `user-${randomBytes(4).toString('hex')}`,
                 createdAt: new Date()
               })
             ).insertedId;

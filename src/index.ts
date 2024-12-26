@@ -10,10 +10,10 @@ import { appRouter } from './trpc';
 import { createContext } from './trpc/context';
 
 const app = express();
-const serverPort = process.env.SERVER_PORT;
+const port = process.env.PORT;
 
-if (!serverPort) {
-  throw new Error('Ports are undefined.');
+if (!port) {
+  throw new Error('Port is undefined.');
 }
 
 app.use(express.json());
@@ -26,8 +26,8 @@ const startServer = async () => {
 
     console.log('Connected to MongoDB');
 
-    app.listen(serverPort, () => {
-      console.log(`Server running on port ${serverPort}`);
+    app.listen(port, () => {
+      console.log(`Server running on port ${port}`);
     });
   } catch (error) {
     console.error('Failed to connect to MongoDB', error);

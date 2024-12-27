@@ -5,7 +5,7 @@ import { TRPCError } from '@trpc/server';
 import { isValidPhoneNumber } from 'libphonenumber-js';
 
 import { collections } from '../../lib/db';
-import { router, publicProcedure, protectedProcedure } from '../trpcs';
+import { router, publicProcedure, protectedProcedure } from '../trpc';
 import { Otp, User } from '../../types';
 
 const jwtSecret = process.env.JWT_SECRET;

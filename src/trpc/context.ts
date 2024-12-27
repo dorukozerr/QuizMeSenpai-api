@@ -3,7 +3,7 @@ import { inferAsyncReturnType } from '@trpc/server';
 import { CreateExpressContextOptions } from '@trpc/server/adapters/express';
 import { verify } from 'jsonwebtoken';
 
-import { collections } from '../lib/db';
+import { collections } from '../lib/mongo';
 import { User } from '../types';
 
 const jwtSecret = process.env.JWT_SECRET;

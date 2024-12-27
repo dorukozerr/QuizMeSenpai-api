@@ -5,7 +5,7 @@ config();
 import express from 'express';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import cookieParser from 'cookie-parser';
-import { mongoClient } from './lib/db';
+import { mongoClient } from './lib/mongo';
 import { appRouter } from './trpc';
 import { createContext } from './trpc/context';
 

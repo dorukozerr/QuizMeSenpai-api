@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { collections } from '../../lib/db';
+import { collections } from '../../lib/mongo';
 import { router, protectedProcedure } from '../trpc';
 
 const jwtSecret = process.env.JWT_SECRET;

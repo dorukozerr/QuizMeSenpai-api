@@ -1,14 +1,25 @@
-import { z } from 'zod';
-import { sign } from 'jsonwebtoken';
 import { randomBytes } from 'crypto';
 import { TRPCError } from '@trpc/server';
+import { z } from 'zod';
+// import {
+//   SNSClient,
+//   PublishCommandInput,
+//   PublishCommand
+// } from '@aws-sdk/client-sns';
 import { isValidPhoneNumber } from 'libphonenumber-js';
+import { sign } from 'jsonwebtoken';
 
-import { collections } from '../../lib/db';
+import { collections } from '../../lib/mongo';
 import { router, publicProcedure, protectedProcedure } from '../trpc';
 import { Otp, User } from '../../types';
 
 const jwtSecret = process.env.JWT_SECRET;
+// const accessKeyId = process.env.AWS_ACCESS_KEY;
+// const secretAccessKey = process.env.AWS_SECRET_KEY;
+
+// if (!accessKeyId || !secretAccessKey) {
+//   throw new Error('AWS credentials are undefined.');
+// }
 
 if (!jwtSecret) {
   throw new Error('JWT Secret is undefined.');
@@ -34,7 +45,27 @@ export const authRouter = router({
         createdAt: new Date()
       });
 
-      // TODO: Implement AWS SNS service here
+      // const snsClient = new SNSClient({
+      //   credentials: { accessKeyId, secretAccessKey },
+      //   region: 'eu-central-1'
+      // });
+
+      // const publishInput: PublishCommandInput = {
+      //   Message: `One time password for QuizMeSenpai - ${otp}`,
+      //   PhoneNumber: phoneNumber,
+      //   MessageAttributes: {
+      //     'AWS.SNS.SMS.SMSType': {
+      //       DataType: 'String',
+      //       StringValue: 'Transactional'
+      //     }
+      //   }
+      // };
+
+      // const command = new PublishCommand(publishInput);
+
+      // await snsClient.send(command);
+
+      // snsClient.destroy();
 
       return { success: true, hash };
     }),

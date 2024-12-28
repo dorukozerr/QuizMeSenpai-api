@@ -25,18 +25,29 @@ export const roomRouter = router({
       })) as Room | null;
 
       if (room) {
+        // On local development if app gets refreshed while user is in the room leave event wont
+        // trigger, and when user re-enters the room same id gets written twice. To prevent this
+        // we're clearing the user from participants and readyChecks first. I belive this can happen
+        // in production if user quits the app and re-opens it also.
+
         await collections.rooms.findOneAndUpdate(
           { roomName },
           {
-            $push: {
-              participants: { _id: user._id, username: user.username }
+            $pull: {
+              participants: { _id: user._id },
+              readyChecks: { _id: user._id }
             }
           }
         );
 
-        ee.emit(`room:${room._id.toString()}`, room._id.toString());
+        await collections.rooms.findOneAndUpdate(
+          { roomName },
+          {
+            $push: { participants: { _id: user._id, username: user.username } }
+          }
+        );
 
-        return { success: true };
+        ee.emit(`room:${room._id.toString()}`, room._id.toString());
       } else {
         const createdRoom = await collections.rooms.insertOne({
           _id: new ObjectId(),
@@ -44,18 +55,22 @@ export const roomRouter = router({
           creatorId: user._id,
           roomAdmin: user._id,
           createdAt: new Date(),
-          state: 'pregame',
+          state: 'pre-game',
           participants: [{ _id: user._id, username: user.username }],
-          readyChecks: []
+          readyChecks: [],
+          gameSettings: {
+            questionPerUser: 5,
+            answerPeriodPerQuestion: 20
+          }
         });
 
         ee.emit(
           `room:${createdRoom.insertedId.toString()}`,
           createdRoom.insertedId.toString()
         );
-
-        return { success: true };
       }
+
+      return { success: true };
     }),
   leaveRoom: protectedProcedure
     .input(
@@ -101,8 +116,6 @@ export const roomRouter = router({
       return observable<Room>((emit) => {
         const onRoomStateChange = async (roomId: string) => {
           try {
-            console.log('onRoomStateChange invoked =>', roomId);
-
             if (!ObjectId.isValid(roomId)) {
               emit.complete();
 
@@ -114,8 +127,6 @@ export const roomRouter = router({
             })) as Room;
 
             if (!room) {
-              console.log('noRoom emit');
-
               emit.complete();
 
               return;
@@ -131,11 +142,7 @@ export const roomRouter = router({
 
         emit.next(room);
 
-        console.log('insideObservable');
-
-        return () => {
-          ee.off(`room:${room._id.toString()}`, onRoomStateChange);
-        };
+        return () => ee.off(`room:${room._id.toString()}`, onRoomStateChange);
       });
     })
 });

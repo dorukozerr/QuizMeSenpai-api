@@ -21,7 +21,11 @@ export interface Room {
   creatorId: ObjectId;
   roomAdmin: ObjectId;
   createdAt: Date;
-  state: 'pregame' | 'ingame' | 'aftergame';
+  state: 'pre-game' | 'in-game';
   participants: { _id: ObjectId; username: string }[];
   readyChecks: { _id: ObjectId }[];
+  gameSettings: {
+    questionPerUser: 5 | 10 | 15 | 20;
+    answerPeriodPerQuestion: 10 | 20 | 30;
+  };
 }

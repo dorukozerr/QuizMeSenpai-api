@@ -1,5 +1,4 @@
 import { EventEmitter } from 'events';
-import { TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -24,6 +23,8 @@ export const roomRouter = router({
         roomName
       })) as Room | null;
 
+      const _id = user._id;
+
       if (room) {
         // On local development if app gets refreshed while user is in the room leave event wont
         // trigger, and when user re-enters the room same id gets written twice. To prevent this
@@ -32,35 +33,30 @@ export const roomRouter = router({
 
         await collections.rooms.findOneAndUpdate(
           { roomName },
-          {
-            $pull: {
-              participants: { _id: user._id },
-              readyChecks: { _id: user._id }
-            }
-          }
+          { $pull: { participants: { _id }, readyChecks: { _id } } }
         );
 
         await collections.rooms.findOneAndUpdate(
           { roomName },
-          {
-            $push: { participants: { _id: user._id, username: user.username } }
-          }
+          { $push: { participants: { _id, username: user.username } } }
         );
 
         ee.emit(`room:${room._id.toString()}`, room._id.toString());
+
+        return { success: true, roomId: room._id };
       } else {
         const createdRoom = await collections.rooms.insertOne({
           _id: new ObjectId(),
           roomName,
-          creatorId: user._id,
-          roomAdmin: user._id,
+          creatorId: _id,
+          roomAdmin: _id,
           createdAt: new Date(),
           state: 'pre-game',
           participants: [{ _id: user._id, username: user.username }],
           readyChecks: [],
           gameSettings: {
-            questionPerUser: 5,
-            answerPeriodPerQuestion: 20
+            questionsPerUser: 5,
+            answerPeriod: 20
           }
         });
 
@@ -68,9 +64,9 @@ export const roomRouter = router({
           `room:${createdRoom.insertedId.toString()}`,
           createdRoom.insertedId.toString()
         );
-      }
 
-      return { success: true };
+        return { success: true, roomId: createdRoom.insertedId };
+      }
     }),
   leaveRoom: protectedProcedure
     .input(
@@ -97,23 +93,15 @@ export const roomRouter = router({
   roomState: protectedProcedure
     .input(
       z.object({
-        roomName: z
-          .string()
-          .min(5, { message: 'Room name can be minimum 5 characters.' })
-          .max(30, { message: 'Room name can be maximum 30 characters.' })
+        roomId: z.string().refine((id) => ObjectId.isValid(id))
       })
     )
-    .subscription(async ({ ctx: { collections }, input: { roomName } }) => {
-      const room = await collections.rooms.findOne({ roomName });
+    .subscription(async ({ ctx: { collections }, input: { roomId } }) => {
+      const room = await collections.rooms.findOne({
+        _id: new ObjectId(roomId)
+      });
 
-      if (!room) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Room not found.'
-        });
-      }
-
-      return observable<Room>((emit) => {
+      return observable<Room | null>((emit) => {
         const onRoomStateChange = async (roomId: string) => {
           try {
             if (!ObjectId.isValid(roomId)) {
@@ -127,7 +115,7 @@ export const roomRouter = router({
             })) as Room;
 
             if (!room) {
-              emit.complete();
+              emit.next(null);
 
               return;
             }
@@ -138,11 +126,11 @@ export const roomRouter = router({
           }
         };
 
-        ee.on(`room:${room._id.toString()}`, onRoomStateChange);
+        ee.on(`room:${room?._id.toString()}`, onRoomStateChange);
 
         emit.next(room);
 
-        return () => ee.off(`room:${room._id.toString()}`, onRoomStateChange);
+        return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
       });
     })
 });

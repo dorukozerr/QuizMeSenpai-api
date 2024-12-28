@@ -6,6 +6,7 @@ import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createExpressMiddleware } from '@trpc/server/adapters/express';
 import { applyWSSHandler } from '@trpc/server/adapters/ws';
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 
 import { mongoClient } from './lib/mongo';
@@ -20,6 +21,18 @@ const WEBSOCKET_PORT = process.env.WEBSOCKET_PORT;
 if (!EXPRESS_PORT || !WEBSOCKET_PORT) {
   throw new Error('Express port is undefined.');
 }
+
+app.use(cookieParser());
+app.use(express.json());
+app.use(cors());
+app.use(
+  '/trpc',
+  createExpressMiddleware({
+    createContext: createExpressContext,
+    router: appRouter
+  })
+);
+
 const wss = new WebSocketServer({ port: Number(WEBSOCKET_PORT) });
 
 const handler = applyWSSHandler({
@@ -40,16 +53,6 @@ process.on('SIGTERM', () => {
   handler.broadcastReconnectNotification();
   wss.close();
 });
-
-app.use(express.json());
-app.use(cookieParser());
-app.use(
-  '/trpc',
-  createExpressMiddleware({
-    createContext: createExpressContext,
-    router: appRouter
-  })
-);
 
 const startServer = async () => {
   try {

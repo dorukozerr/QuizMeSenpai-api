@@ -5,16 +5,18 @@ const t = initTRPC.context<Context>().create();
 
 const middleware = t.middleware;
 
-const isAuthenticated = middleware(async ({ ctx: { user }, next }) => {
-  if (!user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'You are not authorized for this request.'
-    });
-  }
+const isAuthenticated = middleware(
+  async ({ ctx: { isWebsocket, user }, next }) => {
+    if (!isWebsocket && !user) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You are not authorized for this request.'
+      });
+    }
 
-  return next();
-});
+    return next();
+  }
+);
 
 export const router = t.router;
 export const publicProcedure = t.procedure;

@@ -1,5 +1,6 @@
 import { randomBytes } from 'crypto';
 import { TRPCError } from '@trpc/server';
+import { Response } from 'express';
 import { z } from 'zod';
 // import {
 //   SNSClient,
@@ -116,7 +117,7 @@ export const authRouter = router({
           expiresIn: '30d'
         });
 
-        res.cookie('token', token, {
+        (res as Response).cookie('token', token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
@@ -132,7 +133,7 @@ export const authRouter = router({
       }
     }),
   logout: protectedProcedure.mutation(async ({ ctx: { res } }) => {
-    res.clearCookie('token');
+    (res as Response).clearCookie('token');
 
     return { success: true };
   }),

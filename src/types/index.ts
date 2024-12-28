@@ -14,3 +14,14 @@ export interface User {
   username: string;
   createdAt: Date;
 }
+
+export interface Room {
+  _id: ObjectId;
+  roomName: string;
+  creatorId: ObjectId;
+  roomAdmin: ObjectId;
+  createdAt: Date;
+  state: 'pregame' | 'ingame' | 'aftergame';
+  participants: { _id: ObjectId; username: string }[];
+  readyChecks: { _id: ObjectId }[];
+}

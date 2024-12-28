@@ -1,6 +1,7 @@
 import { randomBytes } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import { Response } from 'express';
+import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 // import {
 //   SNSClient,
@@ -40,6 +41,7 @@ export const authRouter = router({
       const otp = randomBytes(3).toString('hex');
 
       await collections.otps.insertOne({
+        _id: new ObjectId(),
         phoneNumber,
         otp,
         hash,
@@ -107,6 +109,7 @@ export const authRouter = router({
           ? user._id
           : (
               await collections.users.insertOne({
+                _id: new ObjectId(),
                 phoneNumber,
                 username: `user-${randomBytes(4).toString('hex')}`,
                 createdAt: new Date()

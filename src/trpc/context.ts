@@ -30,7 +30,7 @@ const getUserFromCookie = async (token: string | undefined) => {
     }
 
     return { _id: user._id, username: user.username };
-  } catch (error) {
+  } catch {
     return null;
   }
 };
@@ -41,7 +41,7 @@ export const createExpressContext = async ({
 }: CreateExpressContextOptions) => {
   const user = await getUserFromCookie(req.cookies.token);
 
-  return { isWebsocket: false, req, res, user };
+  return { isWebsocket: false, req, res, user, collections };
 };
 
 export const createWebsocketContext = async ({
@@ -50,7 +50,7 @@ export const createWebsocketContext = async ({
 }: CreateWSSContextFnOptions) => {
   const user = await getUserFromCookie(req?.headers?.cookie?.slice(6));
 
-  return { isWebsocket: true, req, res, user };
+  return { isWebsocket: true, req, res, user, collections };
 };
 
 export type ExpressContext = inferAsyncReturnType<typeof createExpressContext>;

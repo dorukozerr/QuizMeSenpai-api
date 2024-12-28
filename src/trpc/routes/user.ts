@@ -1,6 +1,6 @@
 import { z } from 'zod';
+import { ObjectId } from 'mongodb';
 
-import { collections } from '../../lib/mongo';
 import { router, protectedProcedure } from '../trpc';
 
 const jwtSecret = process.env.JWT_SECRET;
@@ -19,12 +19,29 @@ export const userRouter = router({
           .max(30, { message: 'Username can be maximum 30 characters.' })
       })
     )
-    .mutation(async ({ ctx: { user }, input: { username } }) => {
+    .mutation(async ({ ctx: { user, collections }, input: { username } }) => {
       await collections.users.findOneAndUpdate(
-        { _id: user?._id },
+        { _id: user._id },
         { $set: { username } }
       );
 
       return { success: true };
-    })
+    }),
+  getUserInfo: protectedProcedure
+    .input(
+      z.object({
+        userId: z
+          .string()
+          .min(24)
+          .max(24)
+          .refine((id) => ObjectId.isValid(id))
+      })
+    )
+    .query(
+      async ({ ctx: { collections }, input: { userId } }) =>
+        await collections.users.findOne(
+          { _id: new ObjectId(userId) },
+          { projection: ['username'] }
+        )
+    )
 });

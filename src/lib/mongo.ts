@@ -19,5 +19,6 @@ const db = mongoClient.db('QuizMeSenpai');
 export const collections = {
   users: db.collection('users'),
   otps: db.collection('otps'),
-  questions: db.collection('questions')
+  questions: db.collection('questions'),
+  rooms: db.collection('rooms')
 };

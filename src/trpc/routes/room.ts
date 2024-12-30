@@ -1,13 +1,11 @@
-import { EventEmitter } from 'events';
 import { TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
 
+import { ee } from '../../lib/event-emitter';
 import { Room } from '../../types';
 import { router, protectedProcedure } from '../trpc';
-
-const ee = new EventEmitter();
 
 export const roomRouter = router({
   enterRoom: protectedProcedure
@@ -131,8 +129,9 @@ export const roomRouter = router({
 
         ee.on(`room:${room?._id.toString()}`, onRoomStateChange);
 
-        emit.next(room);
-
+        if (room) {
+          emit.next(room);
+        }
         return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
       });
     }),
@@ -166,6 +165,48 @@ export const roomRouter = router({
         await collections.rooms.findOneAndUpdate(
           { _id: new ObjectId(roomId) },
           { $set: { roomAdmin: new ObjectId(newAdminId) } }
+        );
+
+        ee.emit(`room:${room._id.toString()}`, room._id.toString());
+
+        return { success: true };
+      }
+    ),
+  kickUser: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        kickedUser: z.string().refine((id) => ObjectId.isValid(id))
+      })
+    )
+    .mutation(
+      async ({ ctx: { collections, user }, input: { roomId, kickedUser } }) => {
+        const room = await collections.rooms.findOne({
+          _id: new ObjectId(roomId)
+        });
+
+        if (!room) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found.'
+          });
+        }
+
+        if (room.roomAdmin.toString() !== user._id.toString()) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Only room admin can kick users.'
+          });
+        }
+
+        await collections.rooms.findOneAndUpdate(
+          { _id: room._id },
+          {
+            $pull: {
+              participants: { _id: new ObjectId(kickedUser) },
+              readyChecks: { _id: new ObjectId(kickedUser) }
+            }
+          }
         );
 
         ee.emit(`room:${room._id.toString()}`, room._id.toString());

@@ -1,6 +1,6 @@
 import { MongoClient, ServerApiVersion, Collection } from 'mongodb';
 
-import { User, Otp, Room } from '../types';
+import { User, Otp, Room, Message } from '../types';
 
 const MongoURI = process.env.MONGODB_URI;
 
@@ -22,5 +22,6 @@ export const collections = {
   users: db.collection('users') as Collection<User>,
   otps: db.collection('otps') as Collection<Otp>,
   questions: db.collection('questions'),
-  rooms: db.collection('rooms') as Collection<Room>
+  rooms: db.collection('rooms') as Collection<Room>,
+  messages: db.collection('messages') as Collection<Message>
 };

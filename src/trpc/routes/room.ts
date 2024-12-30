@@ -15,8 +15,8 @@ export const roomRouter = router({
       z.object({
         roomName: z
           .string()
-          .min(5, { message: 'Room name can be minimum 5 characters.' })
-          .max(30, { message: 'Room name can be maximum 30 characters.' })
+          .min(3, { message: 'Room name can be minimum 3 characters.' })
+          .max(15, { message: 'Room name can be maximum 15 characters.' })
       })
     )
     .mutation(async ({ ctx: { collections, user }, input: { roomName } }) => {

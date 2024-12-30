@@ -15,8 +15,8 @@ export const userRouter = router({
       z.object({
         username: z
           .string()
-          .min(5, { message: 'Username can be minimum 5 characters.' })
-          .max(30, { message: 'Username can be maximum 30 characters.' })
+          .min(3, { message: 'Username can be minimum 3 characters.' })
+          .max(15, { message: 'Username can be maximum 15 characters.' })
       })
     )
     .mutation(async ({ ctx: { user, collections }, input: { username } }) => {
@@ -27,7 +27,7 @@ export const userRouter = router({
 
       return { success: true };
     }),
-  getUserInfo: protectedProcedure
+  getUsername: protectedProcedure
     .input(
       z.object({ userId: z.string().refine((id) => ObjectId.isValid(id)) })
     )

@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { TRPCError } from '@trpc/server';
 import { observable } from '@trpc/server/observable';
 import { ObjectId } from 'mongodb';
 import { z } from 'zod';
@@ -78,7 +79,7 @@ export const roomRouter = router({
       })
     )
     .mutation(async ({ ctx: { collections, user }, input: { roomName } }) => {
-      await collections.rooms.findOneAndUpdate(
+      const room = (await collections.rooms.findOneAndUpdate(
         { roomName },
         {
           $pull: {
@@ -86,7 +87,9 @@ export const roomRouter = router({
             readyChecks: { _id: user._id }
           }
         }
-      );
+      )) as Room;
+
+      ee.emit(`room:${room._id.toString()}`, room._id.toString());
 
       return { success: true };
     }),
@@ -132,5 +135,42 @@ export const roomRouter = router({
 
         return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
       });
-    })
+    }),
+  assignNewAdmin: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        newAdminId: z.string().refine((id) => ObjectId.isValid(id))
+      })
+    )
+    .mutation(
+      async ({ ctx: { collections, user }, input: { roomId, newAdminId } }) => {
+        const room = (await collections.rooms.findOne({
+          _id: new ObjectId(roomId)
+        })) as Room | null;
+
+        if (!room) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found.'
+          });
+        }
+
+        if (room.roomAdmin.toString() !== user._id.toString()) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Only room admin can assign new admin.'
+          });
+        }
+
+        await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId) },
+          { $set: { roomAdmin: new ObjectId(newAdminId) } }
+        );
+
+        ee.emit(`room:${room._id.toString()}`, room._id.toString());
+
+        return { success: true };
+      }
+    )
 });

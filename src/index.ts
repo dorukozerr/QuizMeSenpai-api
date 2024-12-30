@@ -24,7 +24,7 @@ if (!EXPRESS_PORT || !WEBSOCKET_PORT) {
 
 app.use(
   cors({
-    origin: 'http://localhost:8080',
+    origin: 'http://localhost:8081',
     credentials: true
   })
 );

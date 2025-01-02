@@ -1,6 +1,6 @@
 import { MongoClient, ServerApiVersion, Collection } from 'mongodb';
 
-import { User, Otp, Room, Message } from '../types';
+import { User, Otp, Room, Message, Question } from '../types';
 
 const MongoURI = process.env.MONGODB_URI;
 
@@ -19,9 +19,9 @@ export const mongoClient = new MongoClient(MongoURI, {
 const db = mongoClient.db('QuizMeSenpai');
 
 export const collections = {
-  users: db.collection('users') as Collection<User>,
   otps: db.collection('otps') as Collection<Otp>,
-  questions: db.collection('questions'),
+  users: db.collection('users') as Collection<User>,
   rooms: db.collection('rooms') as Collection<Room>,
-  messages: db.collection('messages') as Collection<Message>
+  messages: db.collection('messages') as Collection<Message>,
+  questions: db.collection('questions') as Collection<Question>
 };

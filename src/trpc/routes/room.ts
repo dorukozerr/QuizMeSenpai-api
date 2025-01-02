@@ -49,6 +49,7 @@ export const roomRouter = router({
         if (room) {
           emit.next(room);
         }
+
         return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
       });
     }),
@@ -76,7 +77,13 @@ export const roomRouter = router({
 
         await collections.rooms.findOneAndUpdate(
           { roomName },
-          { $pull: { participants: { _id }, readyChecks: { _id } } }
+          {
+            $pull: {
+              participants: { _id },
+              readyChecks: { _id },
+              'gameSettings.questions': { _id: _id }
+            }
+          }
         );
 
         await collections.rooms.findOneAndUpdate(
@@ -98,8 +105,9 @@ export const roomRouter = router({
           participants: [{ _id: user._id, username: user.username }],
           readyChecks: [],
           gameSettings: {
-            questionsPerUser: 5,
-            answerPeriod: 20
+            questionsPerUser: '5',
+            answerPeriod: '60',
+            questions: []
           }
         });
 
@@ -121,17 +129,25 @@ export const roomRouter = router({
       })
     )
     .mutation(async ({ ctx: { collections, user }, input: { roomName } }) => {
-      const room = (await collections.rooms.findOneAndUpdate(
+      const result = await collections.rooms.findOneAndUpdate(
         { roomName },
         {
           $pull: {
             participants: { _id: user._id },
-            readyChecks: { _id: user._id }
+            readyChecks: { _id: user._id },
+            'gameSettings.questions': { _id: user._id }
           }
         }
-      )) as Room;
+      );
 
-      ee.emit(`room:${room._id.toString()}`, room._id.toString());
+      if (!result) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Room not found.'
+        });
+      }
+
+      ee.emit(`room:${result._id.toString()}`, result._id.toString());
 
       return { success: true };
     }),
@@ -144,30 +160,19 @@ export const roomRouter = router({
     )
     .mutation(
       async ({ ctx: { collections, user }, input: { roomId, newAdminId } }) => {
-        const room = (await collections.rooms.findOne({
-          _id: new ObjectId(roomId)
-        })) as Room | null;
-
-        if (!room) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Room not found.'
-          });
-        }
-
-        if (room.roomAdmin.toString() !== user._id.toString()) {
-          throw new TRPCError({
-            code: 'UNAUTHORIZED',
-            message: 'Only room admin can assign new admin.'
-          });
-        }
-
-        await collections.rooms.findOneAndUpdate(
-          { _id: new ObjectId(roomId) },
+        const result = await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId), roomAdmin: user._id },
           { $set: { roomAdmin: new ObjectId(newAdminId) } }
         );
 
-        ee.emit(`room:${room._id.toString()}`, room._id.toString());
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found or unauthorized.'
+          });
+        }
+
+        ee.emit(`room:${roomId}`, roomId);
 
         return { success: true };
       }
@@ -181,35 +186,57 @@ export const roomRouter = router({
     )
     .mutation(
       async ({ ctx: { collections, user }, input: { roomId, kickedUser } }) => {
-        const room = await collections.rooms.findOne({
-          _id: new ObjectId(roomId)
-        });
-
-        if (!room) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Room not found.'
-          });
-        }
-
-        if (room.roomAdmin.toString() !== user._id.toString()) {
-          throw new TRPCError({
-            code: 'UNAUTHORIZED',
-            message: 'Only room admin can kick users.'
-          });
-        }
-
-        await collections.rooms.findOneAndUpdate(
-          { _id: room._id },
+        const result = await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId), roomAdmin: user._id },
           {
             $pull: {
               participants: { _id: new ObjectId(kickedUser) },
-              readyChecks: { _id: new ObjectId(kickedUser) }
+              readyChecks: { _id: new ObjectId(kickedUser) },
+              'gameSettings.questions': { _id: new ObjectId(kickedUser) }
             }
           }
         );
 
-        ee.emit(`room:${room._id.toString()}`, room._id.toString());
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found or unauthorized.'
+          });
+        }
+
+        ee.emit(`room:${roomId}`, roomId);
+
+        return { success: true };
+      }
+    ),
+  changeGameSettings: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        settingToChange: z.enum(['questionsPerUser', 'answerPeriod']),
+        newValue: z.enum(['5', '10', '15', '20', '30', '60', '90', '120'])
+      })
+    )
+    .mutation(
+      async ({
+        ctx: { collections, user },
+        input: { roomId, settingToChange, newValue }
+      }) => {
+        const result = await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId), roomAdmin: user._id },
+          { $set: { [`gameSettings.${settingToChange}`]: newValue } }
+        );
+
+        console.log({ result });
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found or unauthorized.'
+          });
+        }
+
+        ee.emit(`room:${roomId}`, roomId);
 
         return { success: true };
       }

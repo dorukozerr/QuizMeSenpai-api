@@ -1,6 +1,6 @@
 import { observable } from '@trpc/server/observable';
-import { z } from 'zod';
 import { ObjectId } from 'mongodb';
+import { z } from 'zod';
 
 import { ee } from '../../lib/event-emitter';
 import { Message } from '../../types';

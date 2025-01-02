@@ -7,30 +7,7 @@ import { Message } from '../../types';
 import { router, protectedProcedure } from '../trpc';
 
 export const messageRouter = router({
-  sendMessage: protectedProcedure
-    .input(
-      z.object({
-        roomId: z.string().refine((id) => ObjectId.isValid(id)),
-        message: z.string().min(1).max(150)
-      })
-    )
-    .mutation(
-      async ({ ctx: { user, collections }, input: { roomId, message } }) => {
-        await collections.messages.insertOne({
-          _id: new ObjectId(),
-          roomId: new ObjectId(roomId),
-          ownerId: user._id,
-          owner: user.username,
-          message,
-          createdAt: new Date()
-        });
-
-        ee.emit(`messages:${roomId}`, roomId);
-
-        return { success: true };
-      }
-    ),
-  messages: protectedProcedure
+  messagesSubscription: protectedProcedure
     .input(
       z.object({
         roomId: z.string().refine((id) => ObjectId.isValid(id))
@@ -72,5 +49,28 @@ export const messageRouter = router({
 
         return () => ee.off(`room:${roomId}`, getMessages);
       });
-    })
+    }),
+  sendMessage: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        message: z.string().min(1).max(150)
+      })
+    )
+    .mutation(
+      async ({ ctx: { user, collections }, input: { roomId, message } }) => {
+        await collections.messages.insertOne({
+          _id: new ObjectId(),
+          roomId: new ObjectId(roomId),
+          ownerId: user._id,
+          owner: user.username,
+          message,
+          createdAt: new Date()
+        });
+
+        ee.emit(`messages:${roomId}`, roomId);
+
+        return { success: true };
+      }
+    )
 });

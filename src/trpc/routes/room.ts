@@ -8,6 +8,50 @@ import { Room } from '../../types';
 import { router, protectedProcedure } from '../trpc';
 
 export const roomRouter = router({
+  roomSubscription: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id))
+      })
+    )
+    .subscription(async ({ ctx: { collections }, input: { roomId } }) => {
+      const room = await collections.rooms.findOne({
+        _id: new ObjectId(roomId)
+      });
+
+      return observable<Room | null>((emit) => {
+        const onRoomStateChange = async (roomId: string) => {
+          try {
+            if (!ObjectId.isValid(roomId)) {
+              emit.complete();
+
+              return;
+            }
+
+            const room = (await collections.rooms.findOne({
+              _id: new ObjectId(roomId)
+            })) as Room;
+
+            if (!room) {
+              emit.next(null);
+
+              return;
+            }
+
+            emit.next(room);
+          } catch (error) {
+            emit.error(error);
+          }
+        };
+
+        ee.on(`room:${room?._id.toString()}`, onRoomStateChange);
+
+        if (room) {
+          emit.next(room);
+        }
+        return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
+      });
+    }),
   enterRoom: protectedProcedure
     .input(
       z.object({
@@ -90,50 +134,6 @@ export const roomRouter = router({
       ee.emit(`room:${room._id.toString()}`, room._id.toString());
 
       return { success: true };
-    }),
-  roomState: protectedProcedure
-    .input(
-      z.object({
-        roomId: z.string().refine((id) => ObjectId.isValid(id))
-      })
-    )
-    .subscription(async ({ ctx: { collections }, input: { roomId } }) => {
-      const room = await collections.rooms.findOne({
-        _id: new ObjectId(roomId)
-      });
-
-      return observable<Room | null>((emit) => {
-        const onRoomStateChange = async (roomId: string) => {
-          try {
-            if (!ObjectId.isValid(roomId)) {
-              emit.complete();
-
-              return;
-            }
-
-            const room = (await collections.rooms.findOne({
-              _id: new ObjectId(roomId)
-            })) as Room;
-
-            if (!room) {
-              emit.next(null);
-
-              return;
-            }
-
-            emit.next(room);
-          } catch (error) {
-            emit.error(error);
-          }
-        };
-
-        ee.on(`room:${room?._id.toString()}`, onRoomStateChange);
-
-        if (room) {
-          emit.next(room);
-        }
-        return () => ee.off(`room:${room?._id.toString()}`, onRoomStateChange);
-      });
     }),
   assignNewAdmin: protectedProcedure
     .input(

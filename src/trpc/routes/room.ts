@@ -81,7 +81,7 @@ export const roomRouter = router({
             $pull: {
               participants: { _id },
               readyChecks: { _id },
-              'gameSettings.questions': { _id: _id }
+              'gameSettings.questions': { ownerId: _id }
             }
           }
         );
@@ -95,28 +95,27 @@ export const roomRouter = router({
 
         return { success: true, roomId: room._id };
       } else {
-        const createdRoom = await collections.rooms.insertOne({
-          _id: new ObjectId(),
-          roomName,
-          creatorId: _id,
-          roomAdmin: _id,
-          createdAt: new Date(),
-          state: 'pre-game',
-          participants: [{ _id: user._id, username: user.username }],
-          readyChecks: [],
-          gameSettings: {
-            questionsPerUser: '5',
-            answerPeriod: '60',
-            questions: []
-          }
-        });
+        const roomId = (
+          await collections.rooms.insertOne({
+            _id: new ObjectId(),
+            roomName,
+            creatorId: _id,
+            roomAdmin: _id,
+            createdAt: new Date(),
+            state: 'pre-game',
+            participants: [{ _id: user._id, username: user.username }],
+            readyChecks: [],
+            gameSettings: {
+              questionsPerUser: '5',
+              answerPeriod: '60',
+              questions: []
+            }
+          })
+        ).insertedId;
 
-        ee.emit(
-          `room:${createdRoom.insertedId.toString()}`,
-          createdRoom.insertedId.toString()
-        );
+        ee.emit(`room:${roomId}`, roomId);
 
-        return { success: true, roomId: createdRoom.insertedId };
+        return { success: true, roomId };
       }
     }),
   leaveRoom: protectedProcedure
@@ -135,7 +134,7 @@ export const roomRouter = router({
           $pull: {
             participants: { _id: user._id },
             readyChecks: { _id: user._id },
-            'gameSettings.questions': { _id: user._id }
+            'gameSettings.questions': { ownerId: user._id }
           }
         }
       );
@@ -192,7 +191,7 @@ export const roomRouter = router({
             $pull: {
               participants: { _id: new ObjectId(kickedUser) },
               readyChecks: { _id: new ObjectId(kickedUser) },
-              'gameSettings.questions': { _id: new ObjectId(kickedUser) }
+              'gameSettings.questions': { ownerId: new ObjectId(kickedUser) }
             }
           }
         );
@@ -226,8 +225,6 @@ export const roomRouter = router({
           { _id: new ObjectId(roomId), roomAdmin: user._id },
           { $set: { [`gameSettings.${settingToChange}`]: newValue } }
         );
-
-        console.log({ result });
 
         if (!result) {
           throw new TRPCError({

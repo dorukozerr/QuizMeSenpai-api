@@ -36,7 +36,7 @@ export interface Question {
 export interface GameSettings {
   questionsPerUser: '5' | '10' | '15' | '20';
   answerPeriod: '30' | '60' | '90' | '120';
-  questions: Question[];
+  questions: { questionId: ObjectId; ownerId: ObjectId }[];
 }
 
 export interface Room {

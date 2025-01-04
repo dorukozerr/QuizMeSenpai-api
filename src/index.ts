@@ -19,7 +19,7 @@ const EXPRESS_PORT = process.env.EXPRESS_PORT;
 const WEBSOCKET_PORT = process.env.WEBSOCKET_PORT;
 
 if (!EXPRESS_PORT || !WEBSOCKET_PORT) {
-  throw new Error('Express port is undefined.');
+  throw new Error('Express || Websocket port is undefined.');
 }
 
 app.use(

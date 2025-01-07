@@ -250,5 +250,34 @@ export const roomRouter = router({
 
         return { success: true };
       }
+    ),
+  toggleReadyStatus: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        isReady: z.boolean()
+      })
+    )
+    .mutation(
+      async ({ ctx: { collections, user }, input: { roomId, isReady } }) => {
+        const result = isReady
+          ? await collections.rooms.findOneAndUpdate(
+              { _id: new ObjectId(roomId) },
+              { $push: { readyChecks: { _id: user._id } } }
+            )
+          : await collections.rooms.findOneAndUpdate(
+              { _id: new ObjectId(roomId) },
+              { $pull: { readyChecks: { _id: user._id } } }
+            );
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found or internal server error.'
+          });
+        }
+
+        return { success: true };
+      }
     )
 });

@@ -1,8 +1,10 @@
 import { ObjectId } from 'mongodb';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 // import { Question } from '../../types';
 import { router, protectedProcedure } from '../trpc';
+import { ee } from '../../lib/event-emitter';
 
 export const questionRouter = router({
   getQuestions: protectedProcedure.query(
@@ -30,6 +32,46 @@ export const questionRouter = router({
           answers,
           correctAnswerIndex
         });
+
+        return { success: true };
+      }
+    ),
+  setQuestions: protectedProcedure
+    .input(
+      z.object({
+        roomId: z.string().refine((id) => ObjectId.isValid(id)),
+        questions: z.array(z.string().refine((id) => ObjectId.isValid(id)))
+      })
+    )
+    .mutation(
+      async ({ ctx: { collections, user }, input: { roomId, questions } }) => {
+        await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId) },
+          { $pull: { 'gameSettings.questions': { ownerId: user._id } } }
+        );
+
+        const result = await collections.rooms.findOneAndUpdate(
+          { _id: new ObjectId(roomId) },
+          {
+            $push: {
+              'gameSettings.questions': {
+                $each: questions.map((questionId) => ({
+                  questionId: new ObjectId(questionId),
+                  ownerId: user._id
+                }))
+              }
+            }
+          }
+        );
+
+        if (!result) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Room not found or unknown server error.'
+          });
+        }
+
+        ee.emit(`room:${roomId}`, roomId);
 
         return { success: true };
       }

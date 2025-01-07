@@ -128,25 +128,38 @@ export const roomRouter = router({
       })
     )
     .mutation(async ({ ctx: { collections, user }, input: { roomName } }) => {
-      const result = await collections.rooms.findOneAndUpdate(
-        { roomName },
-        {
-          $pull: {
-            participants: { _id: user._id },
-            readyChecks: { _id: user._id },
-            'gameSettings.questions': { ownerId: user._id }
-          }
-        }
-      );
+      const room = await collections.rooms.findOne({ roomName });
 
-      if (!result) {
+      if (!room) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Room not found.'
         });
       }
 
-      ee.emit(`room:${result._id.toString()}`, result._id.toString());
+      const result =
+        room?.state === 'pre-game'
+          ? await collections.rooms.findOneAndUpdate(
+              { roomName },
+              {
+                $pull: {
+                  participants: { _id: user._id },
+                  readyChecks: { _id: user._id },
+                  'gameSettings.questions': { ownerId: user._id }
+                }
+              }
+            )
+          : await collections.rooms.findOneAndUpdate(
+              { roomName },
+              {
+                $pull: {
+                  participants: { _id: user._id },
+                  readyChecks: { _id: user._id }
+                }
+              }
+            );
+
+      ee.emit(`room:${result?._id.toString()}`, result?._id.toString());
 
       return { success: true };
     }),
